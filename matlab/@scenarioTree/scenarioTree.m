@@ -8,6 +8,7 @@ classdef scenarioTree
         ancestor;
         children;
         branchingFactor;
+        predictionHorizon;
     end 
 
     methods( Access = public )
@@ -43,6 +44,7 @@ classdef scenarioTree
                 branchingFactorStage = length(scenarioTreeParameter.branchingFactor);
                 obj.branchingFactor = ones(scenarioTreeParameter.N, 1);
                 obj.branchingFactor(1:branchingFactorStage) = scenarioTreeParameter.branchingFactor;
+                obj.predictionHorizon = scenarioTreeParameter.N;
                 obj.stage = 0;
                 obj.prob = 1;
                 obj.leaves = 1;
@@ -79,11 +81,5 @@ classdef scenarioTree
                 end
             end
         end 
-
-        [sys,V,tree] = system_generation(obj,ops_sys_masses,ops_tree);
-
-        obj = Precondtion_system(obj);
-
-        [ value, primal_epsilon ] = cost_function( obj,Z);
     end 
 end
