@@ -16,27 +16,28 @@ function [matHzUpdate, oracleGradParameter] = oracleHessianVec(obj, dir)
 %     gradient update. It contains the funFvarUpdate - the change in the function
 %     f variables in the specified direction.  
 %
+
 system = obj.system;
 constraint = system.constraint;
 terminalConstraint = system.terminalConstraint;
-tree = obj.tree;
-nx = size(system.dynamics.matA, 1);
-nu = size(system.dynamics.matB, 2);
+tree = system.tree;
+nx = size(system.dynamics.matA{1}, 1);
+nu = size(system.dynamics.matB{1}, 2);
+ny = size(constraint.matF{1}, 1);
 numScen = length(tree.leaves);
 numNonLeaf = length(tree.children);
 
 [funFvarUpdate, oracleGradParameter] = oracleDualGradientUpdate(obj, dir);
 
-matHzUpdate.y = zeros(2*(nx + nu), numNonLeaf);
+matHzUpdate.y = zeros(ny, numNonLeaf);
 matHzUpdate.yt = cell(numScen, 1 );
-for iPred = 1:numNonLeaf
-    matHzUpdate.y(:,iPred) = constraint.matF{iPred}*funFvarUpdate.stateX(:,iPred) + constraint.matG{iPred}*funFvarUpdate.inputU(:,iPred);
+for i = 1:numNonLeaf
+    matHzUpdate.y(:, i) = constraint.matF{i}*funFvarUpdate.stateX(:, i) + constraint.matG{i}*funFvarUpdate.inputU(:, i);
 end
 
-for iPred=1:numScen
-    matHzUpdate.yt{iPred,1} = terminalConstraint.matFt{iPred,1}*funFvarUpdate.stateX(:, numNonLeaf + iPred);
+for i = 1:numScen
+    matHzUpdate.yt{i} = terminalConstraint.matFt{i}*funFvarUpdate.stateX(:, numNonLeaf + i);
 end 
-
 oracleGradParameter.funFvarUpdate = funFvarUpdate;
 end
 

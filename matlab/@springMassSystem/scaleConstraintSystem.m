@@ -6,17 +6,17 @@ function obj  = scaleConstraintSystem( obj )
 %  obj = scaleConstraintSystem(obj)
 %
 
-numNode = length(obj.tree.stages);
+numNode = length(obj.tree.stage);
 numScenario = length(obj.tree.leaves);
-numConstraint = size(obj.constraint.F{1}, 1);
+numConstraint = size(obj.constraint.matF{1}, 1);
 
 for iNode = 1:numNode - numScenario
     for iConstraint = 1:numConstraint
-        if(abs(obj.dynamics.g{iNode}(iConstraint)) > 0)
+        if(abs(obj.constraint.g{iNode}(iConstraint)) > 0)
             obj.constraint.matF{iNode}(iConstraint, :) = obj.constraint.matF{iNode}(iConstraint, :)/...
-                abs(obj.dynamics.g{iNode}(iConstraint));
+                abs(obj.constraint.g{iNode}(iConstraint));
             obj.constraint.matG{iNode}(iConstraint, :) = obj.constraint.matG{iNode}(iConstraint, :)/...
-                abs(obj.dynamics.g{iNode}(iConstraint));
+                abs(obj.constraint.g{iNode}(iConstraint));
             obj.constraint.g{iNode}(iConstraint) = obj.constraint.g{iNode}(iConstraint)/...
                 abs(obj.constraint.g{iNode}(iConstraint));
         end
@@ -27,7 +27,7 @@ numConstraint = size(obj.terminalConstraint.matFt{1},1);
 for iSec = 1:numScenario
     for iConstraint = 1:numConstraint
         if(abs(obj.terminalConstraint.gt{iSec}(iConstraint)) > 0)
-            obj.terminalConstaint.matFt{iSec}(iConstraint,:) = obj.terminalConstraint.matFt{iSec}(iConstraint, :)/...
+            obj.terminalConstraint.matFt{iSec}(iConstraint,:) = obj.terminalConstraint.matFt{iSec}(iConstraint, :)/...
                 obj.terminalConstraint.gt{iSec}(iConstraint);
             obj.terminalConstraint.gt{iSec}(iConstraint) = obj.terminalConstraint.gt{iSec}(iConstraint)/...
                 abs(obj.terminalConstraint.gt{iSec}(iConstraint));

@@ -36,6 +36,7 @@ classdef scenarioTree
             % TODO
             %   Implement functions to generate the scenario tree from the
             %     uncertainData
+            %
             
             if(isfield(scenarioTreeParameter, 'uncertainData'))
                 
@@ -80,6 +81,15 @@ classdef scenarioTree
                     obj.leaves = currentNodeVec;
                 end
             end
-        end 
+        end
+        
+        function scenarioList = getScenarioList(obj)
+            numScenario = length(obj.leaves);
+            scenarioList = zeros(obj.predictionHorizon + 1, numScenario);
+            scenarioList(obj.predictionHorizon + 1, :) = obj.leaves;
+            for iPred = obj.predictionHorizon:-1:1
+                scenarioList(iPred, :) = obj.ancestor(scenarioList(iPred + 1, :));
+            end
+        end
     end 
 end

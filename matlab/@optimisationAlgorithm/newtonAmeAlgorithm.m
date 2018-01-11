@@ -20,8 +20,6 @@ function [funFvar, namaParameter] = newtonAmeAlgorithm(obj)
 %
 
 system = obj.system; 
-stageCost = system.stageCost;
-terminalCost = system.terminalCost;
 constraint = system.constraint;
 terminalConstraint = system.terminalConstraint;
 
@@ -37,6 +35,8 @@ for i = 1:numScen
     numDualVarLeave = numDualVarLeave + size(terminalConstraint.matFt{i}, 1);
 end 
 numDualVarNode =  size(constraint.matF{1}, 1) * (numNode - numScen);
+% initialise the lbfgs memory
+obj = createDirectionParameter(obj);
 
 iStep = 1;
 tic
@@ -47,23 +47,26 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
         % step 2: proximal with respect to g or argmin of the argumented
         %   Lagrangian with respect to dual varaible
         [~, proximalParameter] = dualVariableUpdate(obj, funFvar, dualVar);
-        %[funGvar, proximalParameter] = proximalG(obj, funFvar, dualVar);
         % step 3: find the direction - calculated through L-BFGS method  
         funGvar = proximalParameter.funGvar;
         fixedPointResidual = proximalParameter.fixedPointResidual;
         obj.algorithmParameter.lambda = proximalParameter.lambda;
-        [ obj, dirEnvelop ] = obj.directionLbfgs(fixedPointResidual, oldFixedPointResidual,...
+        [ dirEnvelop, directionParamter ] = obj.directionLbfgs(fixedPointResidual, oldFixedPointResidual,...
             dualVar, oldDualVar);
+        obj.algorithmParameter.lbfgsParameter = directionParamter.lbfgsParameter;
         oldDualVar = dualVar;
         oldFixedPointResidual = fixedPointResidual;
         % step 4 line search on the Lagrangian
         primalVar.funFvar = funFvar;
         primalVar.funGvar = funGvar;
         [newtonUpdateDualVar, newtonLsParameter] = linesearchNewtonDir(obj, primalVar, dualVar, fixedPointResidual, dirEnvelop);
-        % step 5 update the dual variable
-        dualVar.y = newtonUpdateDualVar.y + newtonLsParameter.fixedPointResidual.y;
+        [valueNamaUpdatedDualVar, valueParameter] = valueAugmentedLagrangian(obj, newtonLsParameter.funFvar,...
+            newtonLsParameter.funGvar, newtonUpdateDualVar, newtonLsParameter.fixedPointResidual);
+        % step 5 update the dual variable 
+        dualVar.y = newtonUpdateDualVar.y - obj.algorithmParameter.lambda*newtonLsParameter.fixedPointResidual.y;
         for i = 1:numScen
-            dualVar.yt{i} = newtonUpdateDualVar.yt{i} + newtonLsParameter.fixedPointResidual.yt{i};
+            dualVar.yt{i} = newtonUpdateDualVar.yt{i} - obj.algorithmParameter.lambda*...
+                newtonLsParameter.fixedPointResidual.yt{i};
         end
         fixedPointResidualVec = zeros(numDualVarNode + numDualVarLeave, 1);
         fixedPointResidualVec(1:numDualVarNode, 1) = reshape(newtonLsParameter.fixedPointResidual.y, numDualVarNode, 1);
@@ -74,6 +77,9 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
         oldDualVar = dualVar; 
         [dualVar, proximalParameter] = obj.dualVariableUpdate(funFvar, oldDualVar);
         oldFixedPointResidual = proximalParameter.fixedPointResidual;
+        
+        [valueNamaUpdatedDualVar, valueParameter] = valueAugmentedLagrangian(obj, funFvar,...
+            proximalParameter.funGvar, oldDualVar, proximalParameter.fixedPointResidual);
         fixedPointResidualVec = zeros(numDualVarNode + numDualVarLeave, 1);
         fixedPointResidualVec(1:numDualVarNode, 1) = reshape(proximalParameter.fixedPointResidual.y, numDualVarNode, 1);
         fixedPointResidualVec(numDualVarNode + 1: numDualVarNode + numDualVarLeave, 1) = reshape(cell2mat(...
@@ -81,21 +87,17 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
     end
     % termination condition 
     namaParameter.lambda(iStep) = proximalParameter.lambda;
-    namaParameter.primalCost(iStep) = 0;% primal cost;
-    namaParameter.dualCost(iStep) = 0;% dual cost;
-    
-    for i = 1:numNode - numScen
-        namaParameter.primalCost(iStep) = namaParameter.primalCost(iStep) + tree.prob(i)*(funFvar.stateX(:,i)' *...
-            stageCost.matQ*funFvar.stateX(:, i) + funFvar.inputU(:,i)'*stageCost.matR*funFvar.inputU(:,i));
-    end
-    dualVariableVec = [reshape(dualVar.y, numDualVarNode, 1); reshape(cell2mat(dualVar.yt), numDualVarLeave, 1)];
-    for i = 1:numScen
-        namaParameter.primalCost(iStep) = namaParameter.primalCost(iStep)+tree.prob(tree.leaves(i))*(funFvar.stateX(:,tree.leaves(i))'*...
-            terminalCost.matVf{i} *funFvar.stateX(:,tree.leaves(i)));
-    end
-    namaParameter.dualCost(iStep) = namaParameter.primalCost(iStep) + dualVariableVec'*fixedPointResidualVec;
-    namaParameter.dualGap(iStep) = dualVariableVec'*fixedPointResidualVec;
+    namaParameter.primalCost(iStep) = valueParameter.primalValue;% primal cost;
+    namaParameter.dualCost(iStep) = valueParameter.primalValue + valueParameter.dualGapValue;% dual cost;
+    namaParameter.dualGap(iStep) = -valueParameter.dualGapValue;
+    namaParameter.valueArgLagran(iStep) = valueNamaUpdatedDualVar;
     namaParameter.normFixedPointResidual(iStep) = norm(fixedPointResidualVec);
+    if( iStep > 1)
+        namaParameter.descentValue(iStep - 1) = directionParamter.descentValue;
+        namaParameter.vecYSk(iStep - 1) = directionParamter.vecYSk;
+        namaParameter.valueArgLagran(iStep - 1) = obj.valueAugmentedLagrangian(newtonLsParameter.funFvar,...
+            newtonLsParameter.funGvar, dualVar, newtonLsParameter.fixedPointResidual);
+    end
     if(norm(fixedPointResidualVec) < obj.algorithmParameter.normFixedPointResidual)
         namaParameter.iterate = iStep;
         break

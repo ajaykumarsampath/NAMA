@@ -60,81 +60,6 @@ classdef optimisationAlgorithm
                 obj.algorithmParameter.lambda = 1/system.systemParameter.lipschitzConstant;
             end
             
-            %{
-            nx = size(system.dynamics.matA{1}, 1);
-            nu = size(system.dynamics.matB{1}, 2);
-            numStage = length(system.tree.stage);
-            numScenario = length(system.tree.leaves);
-            numNonLeaf = numStage - numScenario; 
-            dimDual = 2*(numNonLeaf*(nx + nu) + numScenario*nx);
-            
-            memory = obj.algorithmParameter.memoryLbfgs;
-            obj.algorithmParameter.parameterLbfgs.S = zeros(dimDual, memory); % dual variable
-            obj.algorithmParameter.ops_FBE.Lbfgs.Y  = zeros(dimDual,memory); % dual gradient
-            obj.algorithmParameter.ops_FBE.Lbfgs.YS = zeros(memory, 1);
-              
-            ops_APG.prox_LS = 'no';
-            ops_FBE = ops_APG;
-            ops_FBE.steps = 200;
-            ops_APG.type = 'yes';
-            
-            ops_FBE.memory = 5;
-            ops_FBE.LS = 'WOLFE';
-            ops_FBE.direction = 'LBFGS';
-            obj.algorithmParameter.ops_FBE.monotonicity = 'yes';
-             
-            default_options=struct('algorithm', 'APG', 'verbose', 0, ...
-                'ops_APG', ops_APG, 'ops_FBE', ops_FBE);
-            flds = fieldnames(default_options);
-            for i=1:numel(flds)
-                if (~isfield(obj.algorithmParameter, flds(i)) &&...
-                        ~isstruct(default_options.(flds{i})))
-                    obj.algorithmParameter.(flds{i}) = default_options.(flds{i});  
-                else
-                    if ~isfield(obj.algorithmParameter, flds(i))
-                        obj.algorithmParameter.(flds{i}) = default_options.(flds{i});
-                    else
-                        if(isstruct(default_options.(flds{i})))
-                            sub_flds = fieldnames(default_options.(flds{i}));
-                            for j=1:numel(sub_flds)
-                                if ~isfield(obj.algorithmParameter.(flds{i}), sub_flds(j))
-                                    obj.algorithmParameter.(flds{i}).(sub_flds{j}) = ...
-                                        default_options.(flds{i}).(sub_flds{j});
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            
-            if(strcmp(obj.algo_details.ops_FBE.direction, 'LBFGS'))
-                % Create the buffer when the direction is calculted
-                % using LBFGS algorithm
-                obj.algorithmParameter.ops_FBE.Lbfgs.LBFGS_col = 1;
-                obj.algorithmParameter.ops_FBE.Lbfgs.LBFGS_mem = 0;
-                obj.algorithmParameter.ops_FBE.Lbfgs.skipCount = 0;
-                obj.algorithmParameter.ops_FBE.alphaC=1;
-                obj.algorithmParameter.ops_FBE.Lbfgs.H = 1;
-                
-                memory = obj.algorithmParameter.ops_FBE.memory;
-                obj.algorithmParameter.ops_FBE.Lbfgs.S=zeros(dim_dual, memory); % dual variable 
-                obj.algorithmParameter.ops_FBE.Lbfgs.Y  = zeros(dim_dual,memory); % dual gradient 
-                obj.algorithmParameter.ops_FBE.Lbfgs.YS = zeros(memory, 1); 
-            
-            else
-                % Present stage we used the CG method to calculate the
-                % direction. The direction is updated using the last
-                % gradient. 
-                
-                obj.algorithmParameter.ops_FBE.ConjGrad.prev_grad_norm=zeros(1,...
-                    obj.algorithmParameter.ops_FBE.steps); % norm of the gradient
-                obj.algorithmParameter.ops_FBE.ConjGrad.prev_dir=zeros(dim_dual,1); % previous direction 
-                obj.algorithmParameter.ops_FBE.ConjGrad.prev_Grad=zeros(dim_dual,1);% previous gradient
-                
-            end
-            % Monotonicity option
-            obj.algorithmParameter.ops_FBE.monotonicity = 'no';
-            %}
             obj.algorithmParameter.gradPersistance = 0;
             obj.algorithmParameter.hessPersistance = 0;
         end
@@ -144,7 +69,7 @@ classdef optimisationAlgorithm
                 algorithmParameter.memory = obj.algorithmParameter.lbfgsParameter.memory;
                 algorithmParameter.direction = 'L-BFGS';
             end 
-            nx = size(obj.system.dynamics.matA{1}, 1);
+            %nx = size(obj.system.dynamics.matA{1}, 1);
             %nu = size(obj.system.dynamics.matB{1}, 2);
             ny = size(obj.system.constraint.matF{1}, 1);
             numStage = length(obj.system.tree.stage);
@@ -162,6 +87,11 @@ classdef optimisationAlgorithm
                 obj.algorithmParameter.lbfgsParameter.matS = zeros(dimDual, memory); % dual variable
                 obj.algorithmParameter.lbfgsParameter.matY = zeros(dimDual,memory); % dual gradient
                 obj.algorithmParameter.lbfgsParameter.vecYS = zeros(memory, 1);
+                obj.algorithmParameter.lbfgsParameter.colLbfgs = 1;
+                obj.algorithmParameter.lbfgsParameter.memLbfgs = 0;
+                obj.algorithmParameter.lbfgsParameter.skipCount = 0;
+                obj.algorithmParameter.lbfgsParameter.alphaC = 1;
+                obj.algorithmParameter.lbfgsParameter.matHessian = 1;
             else
                 obj.algorithmParameter.conjGradParameter.prevGradNorm = zeros(1,...
                     obj.algorithmParameter.stepEnvelop); % norm of the gradient
@@ -183,19 +113,23 @@ classdef optimisationAlgorithm
          
         [updatedDualGradient, proximalDetails] = proximalGconjugate(obj, primalVariable, dualVariable);
         
-        [ lambda ] = backtackingStepsize( previousLambda, backtrackingParameter);
-        
         [primalVariable, apgParameter] = dualApgAlgorithm(obj)
         
         [funFvarUpdate, oracleGradParameter] = oracleDualGradientUpdate(obj, dir)
-        
-        [matHzUpdate, oracleGradParameter] = oracleHessianVec(obj, dir);
                 
-        [ obj, dirEnvelop ] = directionLbfgs( obj, gradientEnv, oldGradientEnv, dualVarY, oldDualVarY);
+        [dirEnvelop, directionParameter ] = directionLbfgs( obj, gradientEnv, oldGradientEnv, dualVarY, oldDualVarY);
         
-        [ updatePrimalVar, updateDualVar ] = linesearchNewtonDir(obj, primalVar, dualVar, fixedResidual, dirEnvelop);
+        [updatePrimalVar, updateDualVar ] = linesearchNewtonDir(obj, primalVar, dualVar, fixedResidual, dirEnvelop);
         
         [funFvar, namaParameter] = newtonAmeAlgorithm(obj);
+        
+        [value, valueParameter] = valueAugmentedLagrangian(obj, funFvar, funGvar, dualVar, fixedPointResidual);
+        
+        [matHzUpdate, oracleGradParameter] = oracleHessianVec(obj, dir);
+        
+        [lambda] = backtackingStepsize( previousLambda, backtrackingParameter);
+                
+        [funFvar, fbeParameter] = dualGlobalFbeAlgorithm(obj);
         %{
         [ Hd ] = dual_hessian_free( obj,Y,d,Z)
         % This function approximate the dual hessian update function 
@@ -290,7 +224,7 @@ classdef optimisationAlgorithm
         % by CG method. 
         %}
     end
-    
+        
     methods( Access = private )
         alpha = calculateLipschitz(obj);
     end

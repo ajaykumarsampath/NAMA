@@ -74,8 +74,8 @@ while(iStep < obj.algorithmParameter.stepApg )
         apgParameter.primalCost(iStep) = apgParameter.primalCost(iStep)+tree.prob(tree.leaves(i))*(funFvar.stateX(:,tree.leaves(i))'*...
             terminalCost.matVf{i} *funFvar.stateX(:,tree.leaves(i)));
     end
-    apgParameter.dualCost(iStep) = apgParameter.primalCost(iStep) + dualVariableVec'*fixedPointResidualVec;
-    apgParameter.dualGap(iStep) = dualVariableVec'*fixedPointResidualVec;
+    apgParameter.dualCost(iStep) = apgParameter.primalCost(iStep) - dualVariableVec'*fixedPointResidualVec;
+    apgParameter.dualGap(iStep) = -dualVariableVec'*fixedPointResidualVec;
     apgParameter.normFixedPointResidual(iStep) = norm(fixedPointResidualVec);
     
     if(norm(fixedPointResidualVec) < obj.algorithmParameter.normFixedPointResidual)
@@ -86,51 +86,6 @@ while(iStep < obj.algorithmParameter.stepApg )
         theta(2) = (sqrt(theta(1)^4 + 4*theta(1)^2) - theta(1)^2)/2;
         iStep = iStep + 1;
     end
-    %{
-    [currentDualVar, proximalParameter] = obj.proximalGconjugate(funFvar, acceleratedDualVariable);
-    apgParameter.lambda(iStep) = proximalParameter.lambda;
-    obj.algorithmParameter.lambda = proximalParameter.lambda;
-    
-    primalConstraint = proximalParameter.primalConstraint;
-    primalTerminalConstraint = proximalParameter.primalTerminalConstraint;
-    apgParameter.primalConstraint{iStep} = primalConstraint;
-    
-    apgParameter.primalCost(iStep) = 0;% primal cost;
-    apgParameter.dualCost(iStep) = 0;% dual cost;
-    epsilonPrimalConstraint = max( max( max(primalConstraint, 0) ) );
-    epsilonPrimalConstraint = max(max(cell2mat(primalTerminalConstraint), epsilonPrimalConstraint));
-    
-    % primal infeasibility 
-    primalInfs.y = currentDualVar.y - prevDualVar.y;
-    for i = 1:numScen
-        primalInfs.yt{i} = currentDualVar.yt{i} - prevDualVar.yt{i};
-    end
-    Glambda = [vec(primalInfs.y);vec(cell2mat(primalInfs.yt))];
-    apgParameter.Glambda(iStep) = norm(Glambda)/proximalParameter.lambda;
-    
-    if(norm(primalInfs.y) > proximalParameter.lambda*algorithmParameter.primalInfeasibility)
-        % step 4: theta update
-        theta(1) = theta(2);
-        theta(2) = (sqrt(theta(1)^4 + 4*theta(1)^2) - theta(1)^2)/2;
-        iStep = iStep + 1;
-    else
-        apgParameter.iterate = iStep;
-        break
-    end
-    
-    apgParameter.epsilonPrimalConstraint(iStep) = epsilonPrimalConstraint;
-    for i = 1:numNode - numScen
-        apgParameter.primalCost(iStep) = apgParameter.primalCost(iStep) + tree.prob(i,1)*(funFvar.stateX(:,i)' *...
-            stageCost.matQ*funFvar.stateX(:,i) + funFvar.inputU(:,i)'*stageCost.matR*funFvar.inputU(:,i));
-        apgParameter.dualCost(iStep) = apgParameter.dualCost(iStep) + currentDualVar.y(:,i)'*(primalConstraint(:,i));
-    end
-    for i = 1:numScen
-        apgParameter.primalCost(iStep) = apgParameter.prm_cst(iStep)+tree.prob(tree.leaves(i))*(funFvar.stateX(:,tree.leaves(i))'*...
-            terminalCost.matVf{i,1} *funFvar.stateX(:,tree.leaves(i)));
-        apgParameter.dualCost(iStep) = apgParameter.dualCost(iStep) + currentDualVar.yt{i,1}'*(primalTerminalConstraint{i,1});
-    end
-    apgParameter.dualCost(iStep) = apgParameter.primalCost(iStep) + apgParameter.dualCost(iStep);   
-    %}
 end
 apgParameter.timeSolve = toc;
 apgParameter.acceleratedDualVariable = accelerateDualVar;

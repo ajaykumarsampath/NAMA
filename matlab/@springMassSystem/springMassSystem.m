@@ -43,7 +43,7 @@ classdef springMassSystem < matlab.mixin.Copyable
                 N = size(sampleTree.value, 2)/2;
                 systemParameter = struct('masses', 1*ones(N ,1), 'b', 0.1*ones(N+1,1), ...
                     'k', 1*ones(N+1,1),'xMin', -5*ones(2*N,1), 'xMax', 5*ones(2*N,1), 'uMin', ...
-                    -5*ones(N-1,1), 'uMax', 5*ones(N-1,1), 'samplingTime', 0.1,...
+                    -2*ones(N-1,1), 'uMax', 2*ones(N-1,1), 'samplingTime', 0.1,...
                     'parametric', false);
             end
             
@@ -124,7 +124,7 @@ classdef springMassSystem < matlab.mixin.Copyable
         
         obj = scaleConstraintSystem( obj );
         
-        obj = precondtionSystem( obj );
+        obj = preconditionSystem( obj );
         
         %[sys,V,tree] = system_generation(obj, ops_sys_masses, ops_tree);
         

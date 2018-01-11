@@ -1,10 +1,10 @@
-function [ obj, dirEnvelop ] = directionLbfgs( obj, gradientEnv, oldGradientEnv, dualVarY, oldDualVarY)
+function [ dirEnvelop , directionParamter] = directionLbfgs( obj, gradientEnv, oldGradientEnv, dualVarY, oldDualVarY)
 %
 % This function calculate the direction using - limited memory BFGS method,
 % quasi-newton based direction update
 %
 % Syntax : 
-%   [obj, dirEnvelop ] = directionLbfgs( obj, gradientEnv, oldGradientEnv, dualVarY, oldDualVarY)
+%   [ dirEnvelop , directionParamter] = directionLbfgs( obj, gradientEnv, oldGradientEnv, dualVarY, oldDualVarY)
 %
 % Input  :    obj          :   algorithm object 
 %             graientdEnv  :   gradient of the envelope
@@ -24,10 +24,7 @@ lbfgsParameter = obj.algorithmParameter.lbfgsParameter;
 memory = lbfgsParameter.memory;
 alphaC = lbfgsParameter.alphaC;
 
-nx = size(system.dynamics.matA{1}, 1);
-nu = size(system.dynamics.matB{1}, 2);
 ny = size(constraint.matF{1}, 1);
-nz = nx + nu;
 tree = system.tree;
 numNonLeaf = length(tree.children);
 numScen = length(tree.leaves);
@@ -42,9 +39,9 @@ sIter(1:numDualVarNonLeaf, 1) = reshape(dualVarY.y - oldDualVarY.y, numDualVarNo
 sIter(numDualVarNonLeaf+1:numDualVar, 1) = reshape(cell2mat(dualVarY.yt) - cell2mat(oldDualVarY.yt),...
     numDualVarLeave, 1);
 gradIter(1:numDualVarNonLeaf, 1) = reshape(gradientEnv.y, numDualVarNonLeaf, 1);
-gradIter(numNonLeaf*ny+1:numNonLeaf*ny+2*numScen*nx, 1) = reshape(cell2mat(gradientEnv.yt), numDualVarLeave, 1);
-gradIterOld(1:numNonLeaf*ny, 1) = reshape(oldGradientEnv.y, numDualVarNonLeaf, 1);
-gradIterOld(numNonLeaf*ny+1:numNonLeaf*ny+2*numScen*nx, 1) = reshape(cell2mat(oldGradientEnv.yt), numDualVarLeave, 1);
+gradIter(numDualVarNonLeaf+1:numDualVar, 1) = reshape(cell2mat(gradientEnv.yt), numDualVarLeave, 1);
+gradIterOld(1:numDualVarNonLeaf, 1) = reshape(oldGradientEnv.y, numDualVarNonLeaf, 1);
+gradIterOld(numDualVarNonLeaf+1:numDualVar, 1) = reshape(cell2mat(oldGradientEnv.yt), numDualVarLeave, 1);
 deltaGrad  = gradIter - gradIterOld;
 vecYSk = deltaGrad'*sIter;
 if norm(gradIter) < 1,alphaC = 3;end
@@ -68,7 +65,6 @@ lbfgsParameter.denominatorHessian = (deltaGrad'*deltaGrad);
 lbfgsParameter.rho = lbfgsParameter.vecYS(lbfgsParameter.colLbfgs); 
 vecDirEnvelop = LBFGS(lbfgsParameter.matS, lbfgsParameter.matY, lbfgsParameter.vecYS, lbfgsParameter.matHessian,...
     -gradIter, int32(lbfgsParameter.colLbfgs), int32(lbfgsParameter.memLbfgs));
-obj.algorithmParameter.lbfgsParameter = lbfgsParameter;
 dirEnvelop.y = reshape(vecDirEnvelop(1:numDualVarNonLeaf,1), ny, numNonLeaf);
 currentDualVarLeave = 0;
 for i=1:numScen
@@ -77,6 +73,13 @@ for i=1:numScen
         currentDualVarLeave + iDualVar, 1);
     currentDualVarLeave = currentDualVarLeave + iDualVar;
 end 
+directionParamter.descentValue = gradIter'*vecDirEnvelop;
+directionParamter.lbfgsParameter = lbfgsParameter;
+%directionParamter.descentValue
+if( directionParamter.descentValue > 0)
+    error('wrongLbfgsDirection', 'lbfg direction is not a decent direction');
+end
+directionParamter.vecYSk = vecYSk;
 
 end
 

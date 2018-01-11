@@ -1,4 +1,4 @@
-function [updateDualVar, namaParameter ] = linesearchNewtonDir(obj, primalVar, dualVar, fixedResidual, dirEnvelop)
+function [updateDualVar, namaParameter ] = linesearchNewtonDir(obj, primalVar, dualVar, fixedPointResidual, dirEnvelop)
 %
 % Function linesearchNewtonDir find the step-size to update the dual variable 
 %   in the given direction. This direction is calculated such that it
@@ -15,7 +15,7 @@ function [updateDualVar, namaParameter ] = linesearchNewtonDir(obj, primalVar, d
 %   dualVar : dual variables correspionding to the constraints that connect
 %     the variable of function f and function g  
 %   fixedResidual : fixed residual that corresponds to the differnce of
-%     linearOperator*funFvar - funGvar
+%     funGvar - linearOperator*funFvar 
 %   dirEnvelop : the direction to solve the fixed-point equation based on
 %     the L-BFGS method
 %
@@ -38,10 +38,11 @@ funFvar = primalVar.funFvar;
 funGvar = primalVar.funGvar;
 
 lambda = obj.algorithmParameter.lambda;
-firstDir = fixedResidual;
-secondDir.y = dirEnvelop.y - lambda*fixedResidual.y;
+firstDir.y = -fixedPointResidual.y;
+secondDir.y = dirEnvelop.y + lambda*fixedPointResidual.y;
 for i = 1:numScen
-    secondDir.yt{i} = dirEnvelop.yt{i} - lambda*fixedResidual.yt{i};
+    firstDir.yt{i} = -fixedPointResidual.yt{i};
+    secondDir.yt{i} = dirEnvelop.yt{i} + lambda*fixedPointResidual.yt{i};
 end
 funFvarUpdateFirstDir = obj.oracleDualGradientUpdate(firstDir);
 funFvarUpdateSecondDir = obj.oracleDualGradientUpdate(secondDir);
@@ -49,21 +50,22 @@ funFvarUpdateSecondDir = obj.oracleDualGradientUpdate(secondDir);
 independentAugLagran = 0; 
 for i = 1:numNonLeaf
     independentAugLagran = independentAugLagran + prob(i)*(2*lambda*funFvar.stateX(:, i) + ...
-        lambda^2*funFvar.stateX(:, i))' * stageCost.matQ * funFvarUpdateFirstDir.stateX(:, i);
+        lambda^2*funFvarUpdateFirstDir.stateX(:, i))' * stageCost.matQ * funFvarUpdateFirstDir.stateX(:, i);
     independentAugLagran = independentAugLagran + prob(i)*(2*lambda*funFvar.inputU(:,i) + ...
-        lambda^2*funFvar.inputU(:, i))' * stageCost.matR * funFvarUpdateFirstDir.inputU(:, i);
-    independentAugLagran = independentAugLagran - 0.5*lambda*norm(fixedResidual.y(:, i))^2;
-    independentAugLagran = independentAugLagran - dualVar.y(:, i)'*fixedResidual.y(:, i);
+        lambda^2*funFvarUpdateFirstDir.inputU(:, i))' * stageCost.matR * funFvarUpdateFirstDir.inputU(:, i);
+    independentAugLagran = independentAugLagran - 0.5*lambda*norm(fixedPointResidual.y(:, i))^2;
+    independentAugLagran = independentAugLagran + dualVar.y(:, i)'*fixedPointResidual.y(:, i);
 end
 for i = 1:numScen
     iLeave = numNonLeaf + i;
     independentAugLagran = independentAugLagran + prob(iLeave)*(2*lambda*funFvar.stateX(:, iLeave) + ...
-        lambda^2*funFvar.stateX(:, iLeave))' * terminalCost.matVf{i} * funFvarUpdateFirstDir.stateX(:, iLeave);
-    independentAugLagran = independentAugLagran - 0.5*lambda*norm(fixedResidual.yt{i})^2;
-    independentAugLagran = independentAugLagran - dualVar.yt{i}'*fixedResidual.yt{i};
+        lambda^2*funFvarUpdateFirstDir.stateX(:, iLeave))' * terminalCost.matVf{i} * funFvarUpdateFirstDir.stateX(:, iLeave);
+    independentAugLagran = independentAugLagran - 0.5*lambda*norm(fixedPointResidual.yt{i})^2;
+    independentAugLagran = independentAugLagran + dualVar.yt{i}'*fixedPointResidual.yt{i};
 end
 independentAugLagran = independentAugLagran - obj.calculatefunGvalue(funGvar);
 
+%{
 dependentLinearAugLagran = 0;
 dependentQuadraticAugLagran = 0;
 for i = 1:numNonLeaf
@@ -83,6 +85,26 @@ for i = 1:numScen
     dependentQuadraticAugLagran = dependentQuadraticAugLagran + prob(iLeave)*funFvarUpdateSecondDir.stateX(:, iLeave)' *...
         terminalCost.matVf{i} * funFvarUpdateSecondDir.stateX(:, iLeave);
 end
+%}
+dependentLinearAugLagran = 0;
+dependentQuadraticAugLagran = 0;
+for i = 1:numNonLeaf
+    dependentLinearAugLagran = dependentLinearAugLagran + 2*prob(i)*(funFvar.stateX(:, i) + ...
+        lambda*funFvarUpdateFirstDir.stateX(:, i))'*stageCost.matQ * funFvarUpdateSecondDir.stateX(:, i);
+    dependentLinearAugLagran = dependentLinearAugLagran + 2*prob(i)*(funFvar.inputU(:, i) +...
+        lambda*funFvarUpdateFirstDir.inputU(:, i))' *stageCost.matR * funFvarUpdateSecondDir.inputU(:, i);
+    dependentQuadraticAugLagran = dependentQuadraticAugLagran + prob(i)*funFvarUpdateSecondDir.stateX(:, i)' *...
+        stageCost.matQ * funFvarUpdateSecondDir.stateX(:, i);
+    dependentQuadraticAugLagran = dependentQuadraticAugLagran + prob(i)*funFvarUpdateSecondDir.inputU(:, i)' *...
+        stageCost.matR * funFvarUpdateSecondDir.inputU(:,i);
+end
+for i = 1:numScen
+    iLeave = numNonLeaf + i;
+    dependentLinearAugLagran = dependentLinearAugLagran + 2*prob(iLeave)*(funFvar.stateX(:, iLeave) + ...
+        lambda*funFvarUpdateFirstDir.stateX(:, iLeave))'*terminalCost.matVf{i} * funFvarUpdateSecondDir.stateX(:, iLeave);
+    dependentQuadraticAugLagran = dependentQuadraticAugLagran + prob(iLeave)*funFvarUpdateSecondDir.stateX(:, iLeave)' *...
+        terminalCost.matVf{i} * funFvarUpdateSecondDir.stateX(:, iLeave);
+end
 
 tau = 0.95;
 while(1)
@@ -98,11 +120,11 @@ while(1)
     
     everyIterAugLagran = 0;
     for i = 1:numNonLeaf
-        everyIterAugLagran =  everyIterAugLagran + updateDualVar.y(:, i)'*(proximalParameter.fixedPointResidual.y(:, i)) +...
+        everyIterAugLagran =  everyIterAugLagran - updateDualVar.y(:, i)'*(proximalParameter.fixedPointResidual.y(:, i)) +...
         0.5*lambda*norm(proximalParameter.fixedPointResidual.y(:, i))^2;
     end
     for i = 1:numScen
-        everyIterAugLagran = everyIterAugLagran + updateDualVar.yt{i}'*proximalParameter.fixedPointResidual.yt{i} + ...
+        everyIterAugLagran = everyIterAugLagran - updateDualVar.yt{i}'*proximalParameter.fixedPointResidual.yt{i} + ...
             0.5*lambda*norm(proximalParameter.fixedPointResidual.yt{i})^2;
     end 
     everyIterAugLagran = everyIterAugLagran + obj.calculatefunGvalue(updateFunGvar);
@@ -116,8 +138,15 @@ while(1)
     end 
 end 
 
+%{
+valueAugLag = obj.valueAugmentedLagrangian(funFvar, funGvar , dualVar, fixedPointResidual);
+valueUpdatedAugLag = obj.valueAugmentedLagrangian(updateFunFvar, updateFunGvar, updateDualVar,...
+    proximalParameter.fixedPointResidual);
+deltaAugLag = valueUpdatedAugLag - valueAugLag;
+%}
 namaParameter.funFvar = updateFunFvar;
 namaParameter.funGvar = updateFunGvar;
 namaParameter.fixedPointResidual = proximalParameter.fixedPointResidual;
+namaParameter.deltaAugLagran = deltaAugLagran;
 end
 

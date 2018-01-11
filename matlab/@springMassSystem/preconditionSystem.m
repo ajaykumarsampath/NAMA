@@ -20,23 +20,22 @@ if( nargin == 1)
     preconditionType = 'Jacobi';
 end
 obj.systemParameter.preconditionType = preconditionType;
-
 if(strcmp(preconditionType, 'Jacobi'))   
-    
     numStages = length(obj.tree.stage);
     numScenarios = length(obj.tree.leaves);
-    nx = size(obj.dynamics.matA, 1);
-    nu = size(obj.dynamics.matB, 2);
+    nx = size(obj.dynamics.matA{1}, 1);
+    nu = size(obj.dynamics.matB{1}, 2);
     nz = nx + nu;
     numConstraint = size(obj.constraint.matF{1},1);
     numTerminalConstraint = size(obj.terminalConstraint.matFt{1},1);
+    scenarioList = obj.tree.getScenarioList();
     predHorizon = obj.tree.predictionHorizon;
     rowKktMat = predHorizon*nz + nx + (predHorizon + 1)*nx;
     offsetKktMat = predHorizon*nz + nx;
     matKkt = zeros(rowKktMat, rowKktMat);
     matKkt(1:predHorizon*nz, 1:nz*predHorizon) = kron(eye(predHorizon),...
         blkdiag(2*obj.stageCost.matQ, 2*obj.stageCost.matR));
-    matKkt(predHorizon*nz+1:predHorizon*nz+nx, predHorizon*nz+1:predHorizon*nz+nx) = 2*obj.stageCost.matVf{1};
+    matKkt(predHorizon*nz+1:predHorizon*nz+nx, predHorizon*nz+1:predHorizon*nz+nx) = 2*obj.terminalCost.matVf{1};
     matKktEquality = zeros((predHorizon + 1)*nx, predHorizon*nz + nx); 
     
     matSys = [obj.dynamics.matA{1} obj.dynamics.matB{1} -eye(nx)];
@@ -51,9 +50,10 @@ if(strcmp(preconditionType, 'Jacobi'))
     matInvKkt11 = matInvKkt(1:offsetKktMat, 1:offsetKktMat);
     
     matLinearOperatorH = zeros(numConstraint*predHorizon+numTerminalConstraint, predHorizon*nz+nx);
-    for iNode = 1:predHorizon
+    for iPred = 1:predHorizon
+        iNode = scenarioList(iPred, 1);
         matSys = [obj.constraint.matF{iNode} obj.constraint.matG{iNode}];
-        matLinearOperatorH((iNode-1)*numConstraint+1:iNode*numConstraint, (iNode-1)*nz+1:iNode*nz) = matSys;
+        matLinearOperatorH((iPred-1)*numConstraint+1:iPred*numConstraint, (iPred-1)*nz+1:iPred*nz) = matSys;
     end
     matLinearOperatorH(predHorizon*numConstraint+1:predHorizon*numConstraint + numTerminalConstraint,...
         predHorizon*nz+1:predHorizon*nz+nx) = obj.terminalConstraint.matFt{1};
@@ -70,16 +70,15 @@ if(strcmp(preconditionType, 'Jacobi'))
             1:iPred*numConstraint)) * obj.constraint.matF{iNode};
         obj.constraint.matG{iNode} = sqrt(obj.tree.prob(iNode)) * diag(matInvSqrtDiagDualHessian((iPred-1)*numConstraint +...
             1:iPred*numConstraint)) * obj.constraint.matG{iNode};
-        obj.constraint.g{iNode} = sqrt(tree.prob(iNode)) * diag(matInvSqrtDiagDualHessian((iPred-1)*numConstraint +...
+        obj.constraint.g{iNode} = sqrt(obj.tree.prob(iNode)) * diag(matInvSqrtDiagDualHessian((iPred-1)*numConstraint +...
             1:iPred*numConstraint)) * obj.constraint.g{iNode};
     end
-    for iSec = 1:numScenarios
-        obj.terminalConstraint.matFt{iSec} = sqrt(tree.prob(tree.leaves(iSec))) * diag(matInvSqrtDiagDualHessian(...
-            predHorizon*numConstraint + 1:end)) * obj.terminalConstraint.matFt{iSec};
-        obj.terminalConstraint.gt{iNode} = sqrt(tree.prob(tree.leaves(iNode))) * diag(matInvSqrtDiagDualHessian(...
-            predHorizon*numConstraint + 1:end)) * obj.terminalConstraint.gt{iNode};
+    for iScen = 1:numScenarios
+        obj.terminalConstraint.matFt{iScen} = sqrt(obj.tree.prob(obj.tree.leaves(iScen))) * diag(matInvSqrtDiagDualHessian(...
+            predHorizon*numConstraint + 1:end)) * obj.terminalConstraint.matFt{iScen};
+        obj.terminalConstraint.gt{iScen} = sqrt(obj.tree.prob(obj.tree.leaves(iScen))) * diag(matInvSqrtDiagDualHessian(...
+            predHorizon*numConstraint + 1:end)) * obj.terminalConstraint.gt{iScen};
     end
-    
 elseif( strcmp(preconditionType, 'Simple') )
     
     numStages = length(obj.tree.stage);
@@ -89,9 +88,9 @@ elseif( strcmp(preconditionType, 'Simple') )
         obj.constraint.matG{iNode} = sqrt(obj.tree.prob(iNode))*(obj.constraint.matG{iNode});
         obj.constraint.g{iNode} = sqrt(obj.tree.prob(iNode))*(obj.constraint.g{iNode});
     end
-    for iSec = 1:numScenarios
-        obj.terminalConstraint.matFt{iSec} = sqrt(tree.prob(tree.leaves(iSec)))*obj.terminalConstraint.matFt{iSec};
-        obj.terminalConstraint.gt{iSec} = sqrt(tree.prob(tree.leaves(iSec)))*obj.terminalConstraint.gt{iSec};
+    for iScen = 1:numScenarios
+        obj.terminalConstraint.matFt{iScen} = sqrt(tree.prob(tree.leaves(iScen)))*obj.terminalConstraint.matFt{iScen};
+        obj.terminalConstraint.gt{iScen} = sqrt(tree.prob(tree.leaves(iScen)))*obj.terminalConstraint.gt{iScen};
     end
     
 else

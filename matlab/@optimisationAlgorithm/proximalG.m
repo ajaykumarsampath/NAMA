@@ -39,11 +39,11 @@ end
 % proximal with indicator function that represent the hard constraints
 for i = numNonLeaf
     funGvar.y(:, i) = min(funGvar.y(:, i), constraint.g{i});
-    fixedPointResidual.y(:, i) = proximalParameter.matHz.y(:, i) - funGvar.y(:, i);
+    fixedPointResidual.y(:, i) = funGvar.y(:, i) - proximalParameter.matHz.y(:, i);
 end
 for i = 1:numScen
     funGvar.yt{i} = min(funGvar.yt{i}, terminalConstraint.gt{i});
-    fixedPointResidual.yt{i} = proximalParameter.matHz.yt{i} - funGvar.yt{i};
+    fixedPointResidual.yt{i} = funGvar.yt{i} - proximalParameter.matHz.yt{i};
 end
 proximalParameter.fixedPointResidual = fixedPointResidual;
 end

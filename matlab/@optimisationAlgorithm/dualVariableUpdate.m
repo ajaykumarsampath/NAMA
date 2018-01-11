@@ -39,9 +39,9 @@ if(strcmp(algorithmParameter.proxLineSearch, 'yes'))
         proximalParameter.funGvar = funGvar;
         lambda = obj.algorithmParameter.lambda;
         fixedPointResidual = proximalParameter.fixedPointResidual;
-        updateDualVariable.y = dualVar.y + lambda*(fixedPointResidual.y);
+        updateDualVariable.y = dualVar.y - lambda*(fixedPointResidual.y);
         for i = 1:numScen
-            updateDualVariable.yt{i, 1} = dualVar.yt{i, 1} + lambda*(fixedPointResidual.yt{i, 1});
+            updateDualVariable.yt{i, 1} = dualVar.yt{i, 1} - lambda*(fixedPointResidual.yt{i, 1});
         end
         nextPrimalVariable = obj.solveStep(obj, updateDualVariable);
         for i = 1:numNonLeaf
@@ -70,9 +70,9 @@ else
     proximalParameter.funGvar = funGvar;
     lambda = obj.algorithmParameter.lambda;
     fixedPointResidual = proximalParameter.fixedPointResidual;
-    updateDualVariable.y = dualVar.y + lambda*(fixedPointResidual.y);
+    updateDualVariable.y = dualVar.y - lambda*(fixedPointResidual.y);
     for i = 1:numScen
-        updateDualVariable.yt{i} = dualVar.yt{i} + lambda*(fixedPointResidual.yt{i});
+        updateDualVariable.yt{i} = dualVar.yt{i} - lambda*(fixedPointResidual.yt{i});
     end
     proximalParameter.lambda = lambda;
 end 
