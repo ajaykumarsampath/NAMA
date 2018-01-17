@@ -79,13 +79,22 @@ classdef springMassSystem < matlab.mixin.Copyable
                         Bg(h+1, iSec) = 1/masses(iSec);
                     end
                 end
-                
+                %{
                 sysContinous = ss(Ag, Bg, eye(nx), zeros(nx,nu));
                 sysDiscrete = c2d(sysContinous, systemParameter.samplingTime );
                 tol = 1e-6;
                 
                 matA = (1 - (abs(sysDiscrete.a) < tol)).*sysDiscrete.a;
                 matB = (1 - (abs(sysDiscrete.b) < tol)).*sysDiscrete.b;
+                %}
+                discreteTime = systemParameter.samplingTime/5;
+                matAd = eye(nx) + discreteTime*Ag;
+                matBd = discreteTime*Bg;
+                matA = matAd^5;
+                matB = matBd;
+                for i = 1:4
+                    matB = matB + matAd^i*matBd;
+                end 
                 matF = [eye(nx); -eye(nx); zeros(2*nu, nx)];
                 matG = [zeros(2*nx, nu); eye(nu); -eye(nu)];
                 g = [systemParameter.xMax; -systemParameter.xMin;...

@@ -106,5 +106,6 @@ fbeParameter.funFvar = updateFunFvar;
 fbeParameter.funGvar = updateFunGvar;
 fbeParameter.fixedPointResidual = proximalParameter.fixedPointResidual;
 fbeParameter.deltaAugLagran = deltaAugLagran;
+fbeParameter.tau = tau;
 end
 

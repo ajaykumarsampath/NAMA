@@ -1,12 +1,12 @@
-function [ lambda ] = backtackingStepsize( previousLambda, backtrackingParameter)
+function [ lambda ] = backtackingStepsize( obj, dualVar)
 %
-% The function backtrackingProximal calculates the step-size for the 
-%   proximal-gradient algorithm. This step-size is calcualted using
-%   backtracking algorithm that decrease the step-size until it satisfies 
-%   the condition of the costs.  
+% The function backtrackingStepsize calculates the step-size for the 
+%   FBE algorithm. This step-size is calcualted using backtracking 
+%   algorithm that decrease the step-size until it satisfies the condition\
+%   of the costs.  
 %
 % Syntax : 
-%  lambda = backtackingStepsize( previousLambda, backtrackingParameter )
+%  lambda = backtackingStepsize(obj, backtrackingParameter )
 %
 % Input  : 
 %  previousLambda  :  step-size before back tracking 
@@ -26,7 +26,7 @@ numNode = length(tree.stage);
 numScen = length(tree.leaves);
 numNonLeaf = numNode - numScen;
 nx = size(system.dynamics.matA{1}, 1);
-ny = size(constraint.matF{1});
+ny = size(constraint.matF{1}, 1);
 
 dualVaraible = backtrackingParameter.currentDualVaraible;
 currentIterate.matHz = backtrackingParameter.matHz;

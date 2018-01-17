@@ -83,7 +83,7 @@ classdef testOptimisationAlgorithm < matlab.unittest.TestCase
                 minDescentDirection = max(namaParameter.descentValue);
             end
             assert( minDescentDirection <= 0, 'lbfgs direction in NAMA is not decent');
-            %{
+            %
             testCase.testGlobalFbeAlgorithm.system.updateInitialState(testInitialState);
             [funFvarFbeAlgo, globalFbeParameter] = testCase.testGlobalFbeAlgorithm.dualGlobalFbeAlgorithm();
             figure
@@ -113,9 +113,9 @@ classdef testOptimisationAlgorithm < matlab.unittest.TestCase
             if(norm(funFvar.stateX - funFvarApgAlgo.stateX) > 0.05)
                 warning('mismatchApgVsNama', 'variation in the norm of the state in accelarated and NAMA algorithm')
             end
-            %if(norm(funFvar.stateX - funFvarFbeAlgo.stateX) > 0.05)
-             %   warning('mismatchglobalFbeVsNama', 'variation in the norm of the state in globalFBE and NAMA algorithm')
-            %end
+            if(norm(funFvar.stateX - funFvarFbeAlgo.stateX) > 0.05)
+                warning('mismatchglobalFbeVsNama', 'variation in the norm of the state in globalFBE and NAMA algorithm')
+            end
         end
         function testOracleInNewtonAmeAlgorithm(testCase)
             system = testCase.testSystem;
@@ -154,23 +154,63 @@ classdef testOptimisationAlgorithm < matlab.unittest.TestCase
             preconditionApgAlgorithm = preconditionApgAlgorithm.factorStep();
             preconditionApgAlgorithm.system.updateInitialState(testInitialState);
             [funFvarPrecndApgAlgo, apgPrecondParameter] = preconditionApgAlgorithm.dualApgAlgorithm();
+            preconditionFbeAlgorithm = optimisationAlgorithm( preconditionedSystem );
+            preconditionFbeAlgorithm = preconditionFbeAlgorithm.factorStep();
+            preconditionFbeAlgorithm.system.updateInitialState(testInitialState);
+            [funFvarPrecndFbeAlgo, fbePrecondParameter] = preconditionFbeAlgorithm.newtonAmeAlgorithm();
             testCase.testApgAlgorithm.system.updateInitialState(testInitialState);
             [funFvarApgAlgo, apgParameter] = testCase.testApgAlgorithm.dualApgAlgorithm();
             figure
             subplot(2, 1, 1)
-            plot(apgParameter.primalCost)
+            plot(apgParameter.primalCost);
             hold all;
-            plot(apgPrecondParameter.primalCost)
-            title('primal cost in dual APG')
+            plot(apgPrecondParameter.primalCost);
+            plot(fbePrecondParameter.primalCost);
+            title('primal cost')
             subplot(2, 1, 2)
-            plot(apgParameter.dualCost)
+            plot(apgParameter.dualCost);
             hold all;
-            plot(apgPrecondParameter.dualCost)
-            title('dual cost in dual APG')
+            plot(apgPrecondParameter.dualCost);
+            plot(fbePrecondParameter.dualCost);
+            title('dual cost')
             if(norm(funFvarPrecndApgAlgo.stateX - funFvarApgAlgo.stateX) > 0.05)
-               warning('mismatchglobalFbeVsNama', 'variation in the norm of the state in globalFBE and NAMA algorithm')
+               warning('mismatchPreconditionSys', 'variation in the norm of the state of actual and preconditioned algorithm')
             end
-        end 
+            if(norm(funFvarPrecndApgAlgo.stateX - funFvarPrecndFbeAlgo.stateX) > 0.05)
+               warning('mismatchNamaVsApg', 'variation in the norm of the state of actual and preconditioned algorithm')
+            end
+        end
+        function testFbeAlgorithm(testCase, testInitialState)
+            preconditionedSystem = copy(testCase.testSystem);
+            preconditionedSystem.scaleConstraintSystem();
+            preconditionedSystem.preconditionSystem();
+            preconditionFbeAlgorithm = optimisationAlgorithm( preconditionedSystem );
+            preconditionFbeAlgorithm = preconditionFbeAlgorithm.factorStep();
+            preconditionFbeAlgorithm.system.updateInitialState(testInitialState);
+            [funFvarPrecndFbeAlgo, fbePrecondParameter] = preconditionFbeAlgorithm.dualGlobalFbeAlgorithm();
+            testCase.testGlobalFbeAlgorithm.system.updateInitialState(testInitialState);
+            [funFvarFbeAlgo, globalFbeParameter] = testCase.testGlobalFbeAlgorithm.dualGlobalFbeAlgorithm();
+            figure
+            subplot(3, 1, 1)
+            plot(globalFbeParameter.primalCost)
+            hold all;
+            plot(fbePrecondParameter.primalCost)
+            title('primal cost FBE algorithm')
+            subplot(3, 1, 2)
+            plot(globalFbeParameter.dualCost)
+            hold all;
+            plot(fbePrecondParameter.dualCost)
+            title('dual cost FBE algorithm')
+            subplot(3, 1, 3)
+            plot(globalFbeParameter.valueArgLagran)
+            hold all;
+            plot(fbePrecondParameter.valueArgLagran)
+            title('argumented Lagrangian FBE algorithm')
+            if(globalFbeParameter.iterate > 1)
+                minDescentDirection = max(globalFbeParameter.descentValue);
+            end
+            assert( minDescentDirection <= 0, 'lbfgs direction in FBE is not decent');
+        end
     end
 end
 

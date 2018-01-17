@@ -32,10 +32,16 @@ for i = 1:numScen
     numDualVarLeave = numDualVarLeave + size(terminalConstraint.matFt{i}, 1);
 end
 numDualVarNode =  size(constraint.matF{1}, 1) * (numNode - numScen);
-
+% initialise the lbfgs memory
+obj = createDirectionParameter(obj);
 iStep = 1;
 tic
 while(iStep < obj.algorithmParameter.stepEnvelop )
+    %{
+    if (iStep == 165)
+        obj.algorithmParameter.lambda
+    end
+    %}
     % step 1: gradient of the congujate of the f (smooth function)
     [funFvar, solveStepDetails] = obj.solveStep(dualVar);
     if(iStep > 1)
@@ -46,6 +52,7 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
         [gradientEnv, ~] = obj.gradientDualEnvelop(proximalParameter.fixedPointResidual);
         % step 4: find the direction - calculated through L-BFGS method
         [dirEnvelop, directionParamter] = obj.directionLbfgs(gradientEnv, oldGradientEnv, dualVar, oldDualVar);
+        obj.algorithmParameter.lbfgsParameter = directionParamter.lbfgsParameter;
         % step 5: lineSearch in the direction of the dual FBE
         primalVar.funFvar = funFvar;
         primalVar.funGvar = proximalParameter.funGvar;
@@ -93,6 +100,8 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
     if( iStep > 1)
         fbeParameter.descentValue(iStep - 1) = directionParamter.descentValue;
         fbeParameter.vecYSk(iStep - 1) = directionParamter.vecYSk;
+        fbeParameter.deltaArgLagran(iStep - 1) = fbeLsParameter.deltaAugLagran;
+        fbeParameter.tau(iStep - 1) = fbeLsParameter.tau;
     end
     if(norm(fixedPointResidualVec) < obj.algorithmParameter.normFixedPointResidual)
         fbeParameter.iterate = iStep;
