@@ -33,11 +33,11 @@ for i = 1:numNonLeaf
     funGvar.y(:, i) = 1/lambda  * dualVar.y(:, i) + proximalParameter.matHz.y(:, i);
 end
 for i = 1:numScen
-    proximalParameter.matHz.yt{i,1} = terminalConstraint.matFt{i}*funFvar.stateX(:, tree.leaves(i));
+    proximalParameter.matHz.yt{i} = terminalConstraint.matFt{i}*funFvar.stateX(:, tree.leaves(i));
     funGvar.yt{i} = 1/lambda * dualVar.yt{i} + proximalParameter.matHz.yt{i};
 end
 % proximal with indicator function that represent the hard constraints
-for i = numNonLeaf
+for i = 1:numNonLeaf
     funGvar.y(:, i) = min(funGvar.y(:, i), constraint.g{i});
     fixedPointResidual.y(:, i) = funGvar.y(:, i) - proximalParameter.matHz.y(:, i);
 end

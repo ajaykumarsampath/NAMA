@@ -39,6 +39,7 @@ numDualVarNode =  size(constraint.matF{1}, 1) * (numNode - numScen);
 obj = createDirectionParameter(obj);
 
 iStep = 1;
+namaParameter.iterate = obj.algorithmParameter.stepEnvelop;
 tic
 while(iStep < obj.algorithmParameter.stepEnvelop )
     % step 1: gradient of the congujate of the f (smooth function) 
@@ -95,8 +96,7 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
     if( iStep > 1)
         namaParameter.descentValue(iStep - 1) = directionParamter.descentValue;
         namaParameter.vecYSk(iStep - 1) = directionParamter.vecYSk;
-        namaParameter.valueArgLagran(iStep - 1) = obj.valueAugmentedLagrangian(newtonLsParameter.funFvar,...
-            newtonLsParameter.funGvar, dualVar, newtonLsParameter.fixedPointResidual);
+        namaParameter.tau(iStep - 1) = newtonLsParameter.tau;
     end
     if(norm(fixedPointResidualVec) < obj.algorithmParameter.normFixedPointResidual)
         namaParameter.iterate = iStep;
@@ -106,5 +106,6 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
     end
 end
 namaParameter.timeSolve = toc;
+namaParameter.fixedPointResidual = newtonLsParameter.fixedPointResidual;
 namaParameter.solveInvokCount = solveStepDetails.invokCount;
 end 

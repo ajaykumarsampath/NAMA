@@ -29,7 +29,7 @@ algorithmParameter = obj.algorithmParameter;
 numNonLeaf = length(tree.children);
 numScen = length(tree.leaves);
 nx = size(system.dynamics.matA{1}, 1);
-ny = size(constraint.matF{1});
+ny = size(constraint.matF{1}, 1);
 
 if(strcmp(algorithmParameter.proxLineSearch, 'yes'))
     beta = 0.5;
@@ -41,23 +41,23 @@ if(strcmp(algorithmParameter.proxLineSearch, 'yes'))
         fixedPointResidual = proximalParameter.fixedPointResidual;
         updateDualVariable.y = dualVar.y - lambda*(fixedPointResidual.y);
         for i = 1:numScen
-            updateDualVariable.yt{i, 1} = dualVar.yt{i, 1} - lambda*(fixedPointResidual.yt{i, 1});
+            updateDualVariable.yt{i} = dualVar.yt{i} - lambda*(fixedPointResidual.yt{i});
         end
-        nextPrimalVariable = obj.solveStep(obj, updateDualVariable);
+        nextPrimalVariable = obj.solveStep(updateDualVariable);
         for i = 1:numNonLeaf
             matHzNextIterate.y(:,i) = constraint.matF{i}*nextPrimalVariable.stateX(:,i) + constraint.matG{i}*nextPrimalVariable.inputU(:,i);
         end
         for i=1:numScen
-            matHzNextIterate.yt{i,1} = terminalConstraint.matFt{i,1}*nextPrimalVariable.stateX(:, tree.leaves(i));
+            matHzNextIterate.yt{i} = terminalConstraint.matFt{i}*nextPrimalVariable.stateX(:, tree.leaves(i));
         end
         
-        deltaDualGrad(1:ny*numNonLeaf, 1) = reshape(matHzNextIterate.y - proximalParameter.matHz, ny*numNonLeaf, 1);
+        deltaDualGrad(1:ny*numNonLeaf, 1) = reshape(matHzNextIterate.y - proximalParameter.matHz.y, ny*numNonLeaf, 1);
         deltaDualGrad(ny*numNonLeaf + 1:ny*numNonLeaf + 2*numScen*nx, 1) = reshape(cell2mat(matHzNextIterate.yt) -...
-            cell2mat(proximalParameter.yt), 2*numScen*nx, 1);
+            cell2mat(proximalParameter.matHz.yt), 2*numScen*nx, 1);
         
-        deltaDualIterate(1:ny*numNonLeaf, 1) = reshape(updateDualVariable.y - dualVaraible.y, ny*numNonLeaf, 1);
+        deltaDualIterate(1:ny*numNonLeaf, 1) = reshape(updateDualVariable.y - dualVar.y, ny*numNonLeaf, 1);
         deltaDualIterate(ny*numNonLeaf + 1:ny*numNonLeaf + 2*numScen*nx, 1) = reshape(cell2mat(updateDualVariable.yt) -...
-            cell2mat(dualVaraible.yt), 2*numScen*nx, 1);
+            cell2mat(dualVar.yt), 2*numScen*nx, 1);
         if(lambda*norm(deltaDualGrad) > alpha*norm(deltaDualIterate))
             obj.algorithmParameter.lambda = beta*lambda;
         else

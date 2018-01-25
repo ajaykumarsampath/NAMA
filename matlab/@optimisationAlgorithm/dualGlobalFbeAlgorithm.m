@@ -34,46 +34,58 @@ end
 numDualVarNode =  size(constraint.matF{1}, 1) * (numNode - numScen);
 % initialise the lbfgs memory
 obj = createDirectionParameter(obj);
+fbeParameter.iterate = obj.algorithmParameter.stepEnvelop;
+%
 iStep = 1;
+justGradStep = 0;
 tic
 while(iStep < obj.algorithmParameter.stepEnvelop )
-    %{
-    if (iStep == 165)
-        obj.algorithmParameter.lambda
-    end
-    %}
     % step 1: gradient of the congujate of the f (smooth function)
     [funFvar, solveStepDetails] = obj.solveStep(dualVar);
     if(iStep > 1)
         % step 2: proximal with respect to g or argmin of the argumented
         %   Lagrangian with respect to dual varaible
         [~, proximalParameter] = obj.dualVariableUpdate(funFvar, dualVar);
+        obj.algorithmParameter.lambda = proximalParameter.lambda;
         % step 3: gradient of the dual FBE
         [gradientEnv, ~] = obj.gradientDualEnvelop(proximalParameter.fixedPointResidual);
         % step 4: find the direction - calculated through L-BFGS method
         [dirEnvelop, directionParamter] = obj.directionLbfgs(gradientEnv, oldGradientEnv, dualVar, oldDualVar);
-        obj.algorithmParameter.lbfgsParameter = directionParamter.lbfgsParameter;
-        % step 5: lineSearch in the direction of the dual FBE
-        primalVar.funFvar = funFvar;
-        primalVar.funGvar = proximalParameter.funGvar;
-        fixedPointResidual = proximalParameter.fixedPointResidual;
-        obj.algorithmParameter.lambda = proximalParameter.lambda;
-        [fbeUpdateDualVar, fbeLsParameter] = linesearchFbeDir(obj, primalVar, dualVar, fixedPointResidual, dirEnvelop);
-        
-        oldDualVar = dualVar;
-        oldGradientEnv = gradientEnv;
-        % step 5 adapted dual variable
-        dualVar.y = fbeUpdateDualVar.y - obj.algorithmParameter.lambda*fbeLsParameter.fixedPointResidual.y;
-        for i = 1:numScen
-            dualVar.yt{i} = fbeUpdateDualVar.yt{i} - obj.algorithmParameter.lambda*fbeLsParameter.fixedPointResidual.yt{i};
+        if( abs(directionParamter.descentValue) < 5e-8)
+            justGradStep = justGradStep + 1; 
+            dualVar.y = dualVar.y - obj.algorithmParameter.lambda*proximalParameter.fixedPointResidual.y;
+            for i = 1:numScen
+                dualVar.yt{i} = dualVar.yt{i} - obj.algorithmParameter.lambda*proximalParameter.fixedPointResidual.yt{i};
+            end
+            [valueFbeUpdatedDualVar, valueParameter] = valueAugmentedLagrangian(obj, funFvar,...
+                proximalParameter.funGvar, dualVar, proximalParameter.fixedPointResidual);
+            fixedPointResidualVec = zeros(numDualVarNode + numDualVarLeave, 1);
+            fixedPointResidualVec(1:numDualVarNode, 1) = reshape(proximalParameter.fixedPointResidual.y, numDualVarNode, 1);
+            fixedPointResidualVec(numDualVarNode + 1: numDualVarNode + numDualVarLeave, 1) = reshape(cell2mat(...
+                proximalParameter.fixedPointResidual.yt), numDualVarLeave, 1);
+            fbeLsParameter.tau = 0; 
+        else
+            obj.algorithmParameter.lbfgsParameter = directionParamter.lbfgsParameter;
+            % step 5: lineSearch in the direction of the dual FBE
+            primalVar.funFvar = funFvar;
+            primalVar.funGvar = proximalParameter.funGvar;
+            fixedPointResidual = proximalParameter.fixedPointResidual;
+            [fbeUpdateDualVar, fbeLsParameter] = linesearchFbeDir(obj, primalVar, dualVar, fixedPointResidual, dirEnvelop);
+            
+            oldDualVar = dualVar;
+            oldGradientEnv = gradientEnv;
+            % step 5 adapted dual variable
+            dualVar.y = fbeUpdateDualVar.y - obj.algorithmParameter.lambda*fbeLsParameter.fixedPointResidual.y;
+            for i = 1:numScen
+                dualVar.yt{i} = fbeUpdateDualVar.yt{i} - obj.algorithmParameter.lambda*fbeLsParameter.fixedPointResidual.yt{i};
+            end
+            [valueFbeUpdatedDualVar, valueParameter] = valueAugmentedLagrangian(obj, fbeLsParameter.funFvar,...
+                fbeLsParameter.funGvar, fbeUpdateDualVar, fbeLsParameter.fixedPointResidual);
+            fixedPointResidualVec = zeros(numDualVarNode + numDualVarLeave, 1);
+            fixedPointResidualVec(1:numDualVarNode, 1) = reshape(fbeLsParameter.fixedPointResidual.y, numDualVarNode, 1);
+            fixedPointResidualVec(numDualVarNode + 1: numDualVarNode + numDualVarLeave, 1) = reshape(cell2mat(...
+                fbeLsParameter.fixedPointResidual.yt), numDualVarLeave, 1);
         end
-        
-        [valueFbeUpdatedDualVar, valueParameter] = valueAugmentedLagrangian(obj, fbeLsParameter.funFvar,...
-            fbeLsParameter.funGvar, fbeUpdateDualVar, fbeLsParameter.fixedPointResidual);
-        fixedPointResidualVec = zeros(numDualVarNode + numDualVarLeave, 1);
-        fixedPointResidualVec(1:numDualVarNode, 1) = reshape(fbeLsParameter.fixedPointResidual.y, numDualVarNode, 1);
-        fixedPointResidualVec(numDualVarNode + 1: numDualVarNode + numDualVarLeave, 1) = reshape(cell2mat(...
-            fbeLsParameter.fixedPointResidual.yt), numDualVarLeave, 1);
     else
         % dual gradient update
         oldDualVar = dualVar;
@@ -100,7 +112,6 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
     if( iStep > 1)
         fbeParameter.descentValue(iStep - 1) = directionParamter.descentValue;
         fbeParameter.vecYSk(iStep - 1) = directionParamter.vecYSk;
-        fbeParameter.deltaArgLagran(iStep - 1) = fbeLsParameter.deltaAugLagran;
         fbeParameter.tau(iStep - 1) = fbeLsParameter.tau;
     end
     if(norm(fixedPointResidualVec) < obj.algorithmParameter.normFixedPointResidual)
@@ -111,18 +122,21 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
     end
 end
 fbeParameter.timeSolve = toc;
+fbeParameter.fixedPointResidual = proximalParameter.fixedPointResidual;
+fbeParameter.justGradStep = justGradStep;
 fbeParameter.solveInvokCount = solveStepDetails.invokCount;
-
+%}
 
 
 %{
-defaultProxLineSearch = obj.algorithmParameter.proxLineSearch;
+%defaultProxLineSearch = obj.algorithmParameter.proxLineSearch;
 initialLambda = obj.algorithmParameter.lambda;
 iStep = 1;
 tic
 % step 1: gradient of the congujate of the f (smooth function)
 [funFvar, solveStepDetails] = obj.solveStep(dualVar);
 while(iStep < obj.algorithmParameter.stepEnvelop )
+    iStep
     if(iStep > 1)
         % step 1: update the gradient of the conjuage using previous
         %   iterate caluation
@@ -163,6 +177,7 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
         oldDualVar = dualVar;
         oldGradientEnv = gradientEnv;
         dualVar = nextIterateDualVar;
+        obj.algorithmParameter.lbfgsParameter = directionParamter.lbfgsParameter;
         
         fixedPointResidualVec = zeros(numDualVarNode + numDualVarLeave, 1);
         fixedPointResidualVec(1:numDualVarNode, 1) = reshape(fbeLsParameter.fixedPointResidual.y, numDualVarNode, 1);
@@ -198,7 +213,7 @@ while(iStep < obj.algorithmParameter.stepEnvelop )
         fbeParameter.descentValue(iStep - 1) = directionParamter.descentValue;
         fbeParameter.vecYSk(iStep - 1) = directionParamter.vecYSk;
     end
-    if(norm(fixedPointResidualVec) < obj.algorithmParameter.normFixedPointResidual)
+    if(norm(fixedPointResidualVec) < 1e-2*obj.algorithmParameter.normFixedPointResidual)
         fbeParameter.iterate = iStep;
         break
     else

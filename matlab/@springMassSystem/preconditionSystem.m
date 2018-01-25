@@ -18,6 +18,7 @@ function [obj] = preconditionSystem( obj, preconditionType )
 
 if( nargin == 1)
     preconditionType = 'Jacobi';
+    %preconditionType = 'Simple';
 end
 obj.systemParameter.preconditionType = preconditionType;
 if(strcmp(preconditionType, 'Jacobi'))   
@@ -89,10 +90,10 @@ elseif( strcmp(preconditionType, 'Simple') )
         obj.constraint.g{iNode} = sqrt(obj.tree.prob(iNode))*(obj.constraint.g{iNode});
     end
     for iScen = 1:numScenarios
-        obj.terminalConstraint.matFt{iScen} = sqrt(tree.prob(tree.leaves(iScen)))*obj.terminalConstraint.matFt{iScen};
-        obj.terminalConstraint.gt{iScen} = sqrt(tree.prob(tree.leaves(iScen)))*obj.terminalConstraint.gt{iScen};
+        obj.terminalConstraint.matFt{iScen} = sqrt(obj.tree.prob(obj.tree.leaves(iScen)))*obj.terminalConstraint.matFt{iScen};
+        obj.terminalConstraint.gt{iScen} = sqrt(obj.tree.prob(obj.tree.leaves(iScen)))*obj.terminalConstraint.gt{iScen};
     end
-    
+    obj.systemParameter.lipschitzConstant = 1/obj.calculateLipschitz();
 else
     error('springMassSystem:preconditionSystem', 'unspecified precondition type');
 end

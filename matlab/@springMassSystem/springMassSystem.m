@@ -131,6 +131,42 @@ classdef springMassSystem < matlab.mixin.Copyable
             obj.initialState = initialState;
         end
         
+        function constraintViolation = checkConstraintViolation(obj, funFvar)
+            stateX = funFvar.stateX;
+            inputU = funFvar.inputU;
+            matLinearH = [obj.constaint.matF{1} obj.constraint.matG{1}];
+            ny = size(matLinearH, 1);
+            numNonLeaf = length(obj.tree.children);
+            numScen = length(obj.tree.leaves);
+            constraintViolation.y = zeros(ny, numNonLeaf); 
+            for i = 1:numNonLeaf
+                constraintViolation.y(:, i) = matLinearH*[stateX(:, i);inputU(:, i)];
+            end
+            for i = 1:numScen
+                iLeave = obj.tree.leaves(i);
+                constraintViolation.yt{i} = obj.terminalConstraint.matFt{i}*stateX(:, iLeave);
+            end 
+        end
+        
+        function mpcCost = calculateScenarioMpc(obj, funFvar)
+            numNode = length(obj.tree.stage);
+            numScen = length(obj.tree.leaves);
+            numNonLeaf = numNode - numScen;
+            prob = obj.tree.prob;
+            mpcCost = 0;
+            for iNode = 1:numNonLeaf
+                mpcCost = mpcCost + prob(iNode)*(funFvar.stateX(:, iNode)'*obj.stageCost.matQ*...
+                    funFvar.stateX(:, iNode));
+                mpcCost = mpcCost + prob(iNode)*(funFvar.inputU(:, iNode)'*obj.stageCost.matR*...
+                    funFvar.inputU(:, iNode));
+            end
+            for iScen = 1:numScen
+                iLeave = numNonLeaf + iScen;
+                mpcCost = mpcCost + prob(iLeave)*(funFvar.stateX(:, iLeave)'*obj.terminalCost.matVf{iScen}*...
+                    funFvar.stateX(:, iLeave));
+            end
+        end
+        
         obj = scaleConstraintSystem( obj );
         
         obj = preconditionSystem( obj );

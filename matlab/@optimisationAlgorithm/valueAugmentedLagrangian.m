@@ -43,24 +43,8 @@ for iScen = 1:numScen
     value = value + 0.5*lambda*norm(fixedPointResidual.yt{iScen})^2;
 end 
 
-%{
-for iNode = 1:numNonLeaf
-    value = value + prob(iNode)*(funFvar.stateX(:, iNode)'*stageCost.matQ*...
-        funFvar.stateX(:, iNode));
-    value = value + prob(iNode)*(funFvar.inputU(:, iNode)'*stageCost.matR*...
-        funFvar.inputU(:, iNode));
-    value = value - dualVar.y(:, iNode)'*fixedPointResidual.y(:, iNode);
-    value = value + 0.5*lambda*norm(fixedPointResidual.y(:, iNode))^2;
-end 
-for iScen = 1:numScen
-    iLeave = numNonLeaf + iScen;
-    value = value + prob(iLeave)*(funFvar.stateX(:, iLeave)'*terminalCost.matVf{iScen}*...
-        funFvar.stateX(:, iLeave));
-    value = value - dualVar.yt{iScen}'*fixedPointResidual.yt{iScen};
-    value = value + 0.5*lambda*norm(fixedPointResidual.yt{iScen})^2;
-end
- %}
 primalValue = primalValue + obj.calculatefunGvalue(funGvar);
+valueParameter.normFixedResidual = value;
 value = value + primalValue + dualGapValue;
 valueParameter.primalValue = primalValue;
 valueParameter.dualGapValue = dualGapValue;

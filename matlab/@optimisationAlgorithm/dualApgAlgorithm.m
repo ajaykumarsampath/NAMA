@@ -69,7 +69,7 @@ while(iStep < obj.algorithmParameter.stepApg )
         apgParameter.primalCost(iStep) = apgParameter.primalCost(iStep) + tree.prob(i)*(funFvar.stateX(:,i)' *...
             stageCost.matQ*funFvar.stateX(:, i) + funFvar.inputU(:,i)'*stageCost.matR*funFvar.inputU(:,i));
     end
-    dualVariableVec = [reshape(currentDualVar.y, numDualVarNonLeaf, 1); reshape(cell2mat(currentDualVar.yt), numDualVarLeave, 1)];
+    dualVariableVec = [reshape(prevDualVar.y, numDualVarNonLeaf, 1); reshape(cell2mat(prevDualVar.yt), numDualVarLeave, 1)];
     for i = 1:numScen
         apgParameter.primalCost(iStep) = apgParameter.primalCost(iStep)+tree.prob(tree.leaves(i))*(funFvar.stateX(:,tree.leaves(i))'*...
             terminalCost.matVf{i} *funFvar.stateX(:,tree.leaves(i)));
@@ -90,5 +90,6 @@ end
 apgParameter.timeSolve = toc;
 apgParameter.acceleratedDualVariable = accelerateDualVar;
 apgParameter.dualVariable = currentDualVar;
+apgParameter.fixedPointResidual = proximalParameter.fixedPointResidual;
 apgParameter.gradInvokCount = solveStepDetails.invokCount;
 end

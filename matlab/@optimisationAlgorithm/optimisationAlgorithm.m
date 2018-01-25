@@ -130,6 +130,10 @@ classdef optimisationAlgorithm
         [lambda] = backtackingStepsize( previousLambda, backtrackingParameter);
                 
         [funFvar, fbeParameter] = dualGlobalFbeAlgorithm(obj);
+        
+        [ model] = createGurobiModel(obj);
+        
+        [output, gurobiParameter] = gurobiSolve(obj, model);
         %{
         [ Hd ] = dual_hessian_free( obj,Y,d,Z)
         % This function approximate the dual hessian update function 

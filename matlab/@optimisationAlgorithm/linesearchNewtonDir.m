@@ -65,27 +65,6 @@ for i = 1:numScen
 end
 independentAugLagran = independentAugLagran - obj.calculatefunGvalue(funGvar);
 
-%{
-dependentLinearAugLagran = 0;
-dependentQuadraticAugLagran = 0;
-for i = 1:numNonLeaf
-    dependentLinearAugLagran = dependentLinearAugLagran + 2*prob(i)*lambda*(funFvar.stateX(:, i) + ...
-        funFvarUpdateFirstDir.stateX(:, i))'*stageCost.matQ * funFvarUpdateSecondDir.stateX(:, i);
-    dependentLinearAugLagran = dependentLinearAugLagran + 2*prob(i)*lambda*(funFvar.inputU(:, i) +...
-        funFvarUpdateFirstDir.inputU(:, i))' *stageCost.matR * funFvarUpdateSecondDir.inputU(:, i);
-    dependentQuadraticAugLagran = dependentQuadraticAugLagran + prob(i)*funFvarUpdateSecondDir.stateX(:, i)' *...
-        stageCost.matQ * funFvarUpdateSecondDir.stateX(:, i);
-    dependentQuadraticAugLagran = dependentQuadraticAugLagran + prob(i)*funFvarUpdateSecondDir.inputU(:, i)' *...
-        stageCost.matR * funFvarUpdateSecondDir.inputU(:,i);
-end
-for i = 1:numScen
-    iLeave = numNonLeaf + i;
-    dependentLinearAugLagran = dependentLinearAugLagran + 2*prob(iLeave)*lambda*(funFvar.stateX(:, iLeave) + ...
-        funFvarUpdateFirstDir.stateX(:, iLeave))'*terminalCost.matVf{i} * funFvarUpdateSecondDir.stateX(:, iLeave);
-    dependentQuadraticAugLagran = dependentQuadraticAugLagran + prob(iLeave)*funFvarUpdateSecondDir.stateX(:, iLeave)' *...
-        terminalCost.matVf{i} * funFvarUpdateSecondDir.stateX(:, iLeave);
-end
-%}
 dependentLinearAugLagran = 0;
 dependentQuadraticAugLagran = 0;
 for i = 1:numNonLeaf
@@ -148,5 +127,6 @@ namaParameter.funFvar = updateFunFvar;
 namaParameter.funGvar = updateFunGvar;
 namaParameter.fixedPointResidual = proximalParameter.fixedPointResidual;
 namaParameter.deltaAugLagran = deltaAugLagran;
+namaParameter.tau = tau;
 end
 
